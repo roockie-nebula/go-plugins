@@ -28,6 +28,7 @@ type kBroker struct {
 
 type subscriber struct {
 	cg   sarama.ConsumerGroup
+	cancel context.CancelFunc
 	t    string
 	opts broker.SubscribeOptions
 }
@@ -71,6 +72,7 @@ func (s *subscriber) Topic() string {
 }
 
 func (s *subscriber) Unsubscribe() error {
+	s.cancel()
 	return s.cg.Close()
 }
 
@@ -204,7 +206,7 @@ func (k *kBroker) Subscribe(topic string, handler broker.Handler, opts ...broker
 		kopts:   k.opts,
 		cg:      cg,
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	topics := []string{topic}
 	go func() {
 		for {
@@ -226,7 +228,7 @@ func (k *kBroker) Subscribe(topic string, handler broker.Handler, opts ...broker
 			}
 		}
 	}()
-	return &subscriber{cg: cg, opts: opt, t: topic}, nil
+	return &subscriber{cg: cg, cancel: cancel, opts: opt, t: topic}, nil
 }
 
 func (k *kBroker) String() string {
